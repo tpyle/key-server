@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 const express    = require ( "express" );
 const path       = require ( "path" );
 const fs         = require ( "fs" );
@@ -5,11 +6,12 @@ const bodyparser = require ( "body-parser" );
 const tokens     = require ( "./btoken.json" );
 const cookparser = require ( "cookie-parser" );
 const uuid       = require ( "uuid/v4" );
+const mso        = require ( "./mso.js" )({time: 300000});
 
 const config = { PORT: 3000 };
 const kpath  = path.resolve(__dirname,"./.keys");
 const kbpath = path.resolve(__dirname,"./ksv/");
-fs.mkdirSync(kbpath, {recursive: true});
+//fs.mkdirSync(kbpath, {recursive: true});
 
 const log   = (s) => { console.log(JSON.stringify(s)) };
 const error = (s) => { console.log(JSON.stringify(s)) };
@@ -20,16 +22,18 @@ async function genSessionId(permissions, req) {
     let id = uuid();
     let logmessage = { message: "New SessionId", sessionId: id, perms: permissions, ip: req.connection.remoteAddress };
     log ( logmessage );
-    temp[id] = permissions;
+    mso.SET(id, permissions);
+    //temp[id] = permissions;
     return id;
 }
 
 async function sessionValid(sessionId, req) {
     let logmessage = { sessionId: sessionId, ip: req.connection.remoteAddress };
-    if ( temp[sessionId] ) {
+    if ( mso.EXISTS(sessionId) ) {
 	logmessage.message = "Session Valid";
+	mso.EXPIRE(sessionId); //Update the timeout
 	log ( logmessage );
-	return temp[sessionId];
+	return mso.GET(sessionId);
     } else {
 	logmessage.message = "Session Invalid/Expired";
 	error ( logmessage );
@@ -76,7 +80,7 @@ app.use( async (req,res,next)=>{
 	if ( _perm < 0 ) {
 	    logmessage.message = "Unrecognized sessionId";
 	    error ( logmessage );
-	    req.status(400).send({message:"sessionId not recognized"});
+	    res.status(400).send({message:"sessionId not recognized"});
 	}
 	if ( perm & _perm ) {
 	    next();
