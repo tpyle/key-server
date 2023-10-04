@@ -1,4 +1,5 @@
 const express    = require ( "express" );
+const prometheus = require ( "express-prometheus-middleware" )
 const path       = require ( "path" );
 const fs         = require ( "fs" );
 const bodyparser = require ( "body-parser" );
@@ -38,6 +39,11 @@ async function sessionValid(sessionId, req) {
 }
 
 let app = express();
+app.use(prometheus({
+    metricsPath: "/metrics",
+    collectDefaultMetrics: true,
+    requestDurationBuckets: [0.1, 0.5, 1, 1.5]
+}));
 app.use(cookparser());
 app.use(bodyparser.raw({type: ()=>{return true;}}));
 
